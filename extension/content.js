@@ -261,7 +261,7 @@
     #cBox label span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
   <div class="box" id="box">
-    <div class="head" id="drag"><span>AI Web 调试 · ${SITE.name}</span><button id="min" class="sm">收起</button><button id="close" class="sm" title="隐藏（点工具栏图标再打开）">×</button></div>
+    <div class="head" id="drag"><span>AI Web 调试 · ${SITE.name}</span><button id="min" class="sm">收起</button><button id="close" class="sm" title="隐藏调试面板（以后要用：工具栏图标 → 当前页调试面板）">隐藏</button></div>
     <div class="body">
       <div class="tip" id="hookTip">检查中…</div>
 
