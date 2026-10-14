@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>AI Web 设置</title>
+<style>
+  :root { color-scheme: light dark; --bg: #fafafa; --card: #fff; --fg: #18181b; --muted: #71717a; --line: #e4e4e7; --ok: #16a34a; --bad: #dc2626; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #18181b; --card: #27272a; --fg: #f4f4f5; --muted: #a1a1aa; --line: #3f3f46; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+  main { max-width: 560px; margin: 40px auto; padding: 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  h1 { font-size: 20px; margin: 0 0 4px; } .sub { color: var(--muted); margin: 0 0 18px; }
+  label { display: block; margin: 14px 0 4px; font-weight: 600; }
+  input[type=text], input[type=number], input[type=password] { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: inherit; font: inherit; }
+  .row { display: flex; gap: 10px; } .row > div { flex: 1; } .row > div.port { flex: 0 0 120px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .chk { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-weight: 400; }
+  .btns { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  button { border: 1px solid var(--line); background: var(--card); color: inherit; border-radius: 9px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  button.pri { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  #msg { margin-top: 14px; white-space: pre-wrap; } .ok { color: var(--ok); } .bad { color: var(--bad); }
+  code { font: 12px ui-monospace, Consolas, monospace; background: rgba(127,127,127,.15); padding: 1px 5px; border-radius: 4px; }
+</style></head>
+<body><main><div class="card">
+  <h1>AI Web 设置</h1>
+  <p class="sub">插件通过 WebSocket 连到局域网里的中转站：<code id="preview">ws://IP:端口/ext</code></p>
+  <div class="row">
+    <div><label for="host">中转站 IP</label><input type="text" id="host" placeholder="例如 192.168.1.100" autocomplete="off"><div class="hint">中转站那台电脑的局域网 IP；中转站就在这台电脑上填 127.0.0.1</div></div>
+    <div class="port"><label for="port">端口</label><input type="number" id="port" min="1" max="65535" placeholder="8765"></div>
+  </div>
+  <label for="token">口令</label><input type="password" id="token" placeholder="和中转站设置的一样；没设就空着" autocomplete="off">
+  <div class="hint">局域网里谁都能连中转站，设个口令，别人就不能用你的账号发消息</div>
+  <label for="name">这台电脑的名字</label><input type="text" id="name" placeholder="例如 书房电脑" autocomplete="off">
+  <div class="hint">有多台电脑连同一个中转站时用来区分</div>
+  <label class="chk"><input type="checkbox" id="auto"> 浏览器打开时自动连接，断了自动重连</label>
+  <label class="chk"><input type="checkbox" id="newWin"> 中转站要打开网站时，每个网站单独开一个窗口（推荐：同一窗口里的后台标签页会被浏览器限流）</label>
+  <div class="btns"><button class="pri" id="save">保存并连接</button><button id="test">测试连接</button></div>
+  <div id="msg"></div>
+</div></main><script src="options.js"></script></body></html>

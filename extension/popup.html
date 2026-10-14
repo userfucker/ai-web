@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>AI Web</title>
+<style>
+  :root { color-scheme: light dark; --bg: #fff; --fg: #18181b; --muted: #71717a; --line: #e4e4e7; --ok: #16a34a; --bad: #dc2626; --warn: #d97706; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #27272a; --fg: #f4f4f5; --muted: #a1a1aa; --line: #3f3f46; } }
+  body { margin: 0; width: 320px; background: var(--bg); color: var(--fg); font: 13px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+  .wrap { padding: 12px; }
+  .conn { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.on { background: var(--ok); } .dot.error { background: var(--bad); } .dot.connecting { background: var(--warn); }
+  .conn .t { flex: 1; min-width: 0; } .conn .e { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+  h2 { font-size: 12px; color: var(--muted); font-weight: 600; margin: 12px 0 4px; }
+  .site { display: flex; align-items: center; gap: 8px; padding: 5px 2px; }
+  .site .n { flex: 1; } .site .s { color: var(--muted); font-size: 12px; }
+  button { border: 1px solid var(--line); background: transparent; color: inherit; border-radius: 8px; padding: 4px 9px; font: inherit; cursor: pointer; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .foot { color: var(--muted); font-size: 11px; margin-top: 10px; }
+</style></head>
+<body><div class="wrap">
+  <div class="conn"><span class="dot" id="dot"></span><div class="t"><div id="ct">…</div><div class="e" id="ce"></div></div><button id="cbtn">连接</button></div>
+  <h2>网站</h2>
+  <div id="sites"></div>
+  <div class="btns"><button id="openAll">打开四个网站</button><button id="debug">当前页调试面板</button><button id="opts">设置</button></div>
+  <div class="foot" id="ver"></div>
+</div><script src="popup.js"></script></body></html>

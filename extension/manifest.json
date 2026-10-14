@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "AI Web · 网页版 AI 桥接",
+  "version": "1.0.0",
+  "description": "让 DeepSeek、智谱清言、千问、Kimi 网页版接入局域网中转站：新建对话、发送、等待完成、读取回复（去掉思考过程）、会话列表、批量删除、打开会话。",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "storage",
+    "scripting",
+    "downloads",
+    "tabs",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.deepseek.com/*",
+    "https://*.chatglm.cn/*",
+    "https://*.tongyi.com/*",
+    "https://*.qianwen.com/*",
+    "https://*.kimi.com/*",
+    "https://*.moonshot.cn/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "AI Web",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.deepseek.com/*",
+        "https://*.chatglm.cn/*",
+        "https://*.tongyi.com/*",
+        "https://*.qianwen.com/*",
+        "https://*.kimi.com/*",
+        "https://*.moonshot.cn/*"
+      ],
+      "js": [
+        "hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://*.deepseek.com/*",
+        "https://*.chatglm.cn/*",
+        "https://*.tongyi.com/*",
+        "https://*.qianwen.com/*",
+        "https://*.kimi.com/*",
+        "https://*.moonshot.cn/*"
+      ],
+      "js": [
+        "sites.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html"
+}
