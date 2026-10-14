@@ -136,7 +136,7 @@ async function runCommand(site, cmd, args = {}, id) {
     case "ask": {
       if (args.newChat) { const n = await newChat(site); if (!n.ok) return n; }
       const tab = await ensureTab(site);
-      return toTab(tab.id, { type: "aib-cmd", cmd: "ask", text: args.text, timeoutMs: args.timeoutMs, reqId: id }, (args.timeoutMs || 300000) + 60000);
+      return toTab(tab.id, { type: "aib-cmd", cmd: "ask", text: args.text, files: args.files, timeoutMs: args.timeoutMs, reqId: id }, (args.timeoutMs || 300000) + 180000);
     }
     case "state": case "ready": case "send": case "wait": case "read": case "generating": case "stop": case "listChats": case "deleteChats": {
       const tab = await ensureTab(site);

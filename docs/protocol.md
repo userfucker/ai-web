@@ -47,9 +47,9 @@
 | `state` | — | `{ url, chatId, generating, inputReady, title }` |
 | `ready` | `timeoutMs?` | 等输入框能用（最多 60 秒），能识别没登录 |
 | `newChat` | — | 新建对话。千问是跳到首页，插件会等新页面准备好 |
-| `send` | `text` | 写进输入框并发送，确认回复接口已经开始；`{ method, how, chatId }` |
+| `send` | `text, files?` | 写进输入框并发送，确认回复接口已经开始；`{ method, how, attach, chatId }`。`files: [{ name: "材料.txt", content: "…" }]` 是要上传的 txt 附件 |
 | `wait` | `timeoutMs?`（默认 300000） | 等回复完成；`{ answer, thinking, done, error, firstTokenSec, totalSec, chatId, url }` |
-| `ask` | `text, newChat?, timeoutMs?` | 等于 newChat（可选）+ send + wait；生成中会发 `progress` |
+| `ask` | `text, files?, newChat?, timeoutMs?` | 等于 newChat（可选）+ send + wait；生成中会发 `progress` |
 | `read` | — | 读当前（最后一次）回复，不等待 |
 | `generating` | — | `{ generating }` |
 | `stop` | — | 点“停止生成”（Kimi、千问有；DeepSeek / 智谱清言要看网站） |
@@ -58,6 +58,7 @@
 | `openChat` | `chatId` 或 `url` | 打开某个会话，等页面能用；返回网站状态 |
 
 说明：
+- 附件：插件依次试三种方式：把文件粘贴到输入框、设置网页上的文件选择框、拖放到输入区域。页面上出现文件名就算放上去了，然后等“上传中 / 解析中”消失再发送。用的是哪种方式写在 `attach.how` 里。
 - `answer` 是 Markdown，**不含思考过程**。`thinking` 里是思考过程，需要的话可以自己存。
 - `chatId` 是网站自己的会话 id，可以存起来，以后 `openChat` 回到这个会话。
 - 删除方式：

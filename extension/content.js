@@ -13,7 +13,7 @@
 (() => {
   if (window.__aibLoaded) { if (window.__aibToggle) window.__aibToggle(); return; }
   window.__aibLoaded = true;
-  const VERSION = "ai-web-1.0.0";
+  const VERSION = "ai-web-1.1.0";
   const HOST_ID = "ai-bridge-host";
 
   const SITES = [
@@ -289,6 +289,7 @@
         <div class="row"><button id="aAll" class="pri">一键测试</button><button id="aNew">新建对话</button><button id="aSend">发送</button><button id="aRead">读取回复</button><button id="aCopy" class="sm">复制回答</button></div>
         <div class="tip">一键测试 = 新建对话 → 发送上面的问题 → 等回复完成 → 读取。回答从网站的流式接口解析，不含思考过程；“页面对照”是和网页上显示的文字比一下。</div>
         <div class="stat" id="aOut" hidden></div>
+        <div class="row"><button id="aFile">附件一键测试</button><span class="tip" style="margin:0">新对话 → 上传 120 行的 txt → 问第 3 行写了什么</span></div>
         <div class="row"><button id="cList">获取会话列表</button><button id="cDel" class="sm">删除选中</button><button id="cOpen" class="sm">打开选中的第一个</button><button id="cStop" class="sm">停止生成</button></div>
         <div id="cBox" class="tip" hidden></div>
       </div>
@@ -983,13 +984,67 @@
       }
       return { ok: true, how: "打开首页", reload: true };
     }
-    async function adSend(text) {
+    // ---- 附件（txt）：中转站发的长消息放进 txt 上传（2026-10-14）
+    // 三种上传方式按顺序试：粘贴文件到输入框 / 设置网页上的文件选择框 / 拖放到输入区域。
+    // 文件名出现在页面上（数量变多）就算放上去了，再等“上传中 / 解析中”消失、发送按钮能点。
+    const UPLOADING_RE = /上传中|解析中|处理中|正在上传|正在解析|uploading|parsing/i;
+    const countText = (t) => { const all = document.body.innerText || ""; let n = 0, i = 0; while ((i = all.indexOf(t, i)) >= 0) { n++; i += t.length; } return n; };
+    function fileInputs() {
+      return [...document.querySelectorAll('input[type="file"]')].filter((x) => !isOurs(x) && !x.disabled && (!x.accept || /\.txt|text\/|\*/i.test(x.accept)));
+    }
+    const ATTACH = {
+      paste: async (input, list) => { await selectIn(input, false); const dt = new DataTransfer(); list.forEach((f) => dt.items.add(f)); input.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); },
+      input: async (input, list) => {
+        const fi = fileInputs();
+        const near = fi.find((x) => { let a = input; for (let i = 0; i < 8 && a; i++, a = a.parentElement) if (a.contains(x)) return true; return false; }) || fi[0];
+        if (!near) throw new Error("页面上没有能选 txt 的文件框");
+        const dt = new DataTransfer(); list.forEach((f) => dt.items.add(f));
+        near.files = dt.files;
+        near.dispatchEvent(new Event("input", { bubbles: true }));
+        near.dispatchEvent(new Event("change", { bubbles: true }));
+      },
+      drop: async (input, list) => {
+        const dt = new DataTransfer(); list.forEach((f) => dt.items.add(f));
+        const target = input.parentElement || input;
+        for (const t of ["dragenter", "dragover", "drop"]) target.dispatchEvent(new DragEvent(t, { dataTransfer: dt, bubbles: true, cancelable: true }));
+      },
+    };
+    async function attachFiles(files) {
+      const input = findAdInput();
+      if (!input) return { ok: false, error: "没找到输入框" };
+      const list = files.map((f) => new File([f.content], f.name, { type: "text/plain" }));
+      const keys = files.map((f) => f.name.replace(/\.txt$/i, ""));
+      const before = keys.map(countText);
+      const order = [...new Set([...(AD.upload || []), "paste", "input", "drop"])];
+      const tried = [];
+      for (const how of order) {
+        try { await ATTACH[how](findAdInput() || input, list); } catch (e) { tried.push(how + "（" + e.message + "）"); continue; }
+        const shown = await waitFor(() => keys.every((k, i) => countText(k) > before[i]), 4000);
+        if (!shown) { tried.push(how); continue; }
+        // 等上传 / 解析完
+        const t0 = Date.now();
+        await sleep(800);
+        while (Date.now() - t0 < 90000 && UPLOADING_RE.test(document.body.innerText.slice(-20000))) await sleep(500);
+        await sleep(800);
+        return { ok: true, how, waitedSec: sec(Date.now() - t0) };
+      }
+      return { ok: false, error: "附件放不上去（试了：" + tried.join("、") + "）" };
+    }
+
+    async function adSend(text, files) {
       const ready = await adReady();
       if (!ready.ok) return { ok: false, error: ready.error };
       await sleep(300);
-      const input = findAdInput();
+      let input = findAdInput();
       if (!input) return { ok: false, error: "没找到输入框" };
       if (!(await clearInput(input))) return { ok: false, error: "输入框清不干净，没有发送" };
+      let attach = null;
+      if (files && files.length) {
+        attach = await attachFiles(files);
+        if (!attach.ok) return { ok: false, error: attach.error };
+        input = findAdInput() || input;
+        await clearInput(input); // 有的网站粘贴文件时会顺便贴进文件名
+      }
       // 多行文字：contenteditable 编辑器用粘贴更能保住换行
       const order = [...new Set([...(/\n/.test(text) && !isTextField(input) ? ["paste"] : []), AD.insert, ...methodOrder(input)])].filter((k) => !(METHODS[k].noSlate && isSlate(input)) && !(METHODS[k].only === "text" && !isTextField(input)) && !(METHODS[k].only === "ce" && isTextField(input)));
       let method = null;
@@ -1013,7 +1068,7 @@
         how += "，没反应，又" + (await fire(AD.sendBy === "click" ? "enter" : "click"));
         started = await waitFor(() => live.cur !== before && live.cur, 12000);
       }
-      return started ? { ok: true, method, how, readySec: ready.waitedSec } : { ok: false, method, how, error: "发送后没看到回复接口的请求（可能没发出去，或者网站换了接口）" };
+      return started ? { ok: true, method, how, readySec: ready.waitedSec, attach } : { ok: false, method, how, attach, error: "发送后没看到回复接口的请求（可能没发出去，或者网站换了接口）" };
     }
     async function adWait(timeoutMs = 300000, onTick) {
       const t0 = Date.now();
@@ -1074,6 +1129,25 @@
     }
     if (AD) {
       $("aAll").onclick = () => guard(() => runAll($("prompt").value.trim() || DEFAULT_PROMPT));
+      $("aFile").onclick = () => guard(async () => {
+        const code = "AIB" + Math.random().toString(36).slice(2, 8).toUpperCase();
+        const lines = Array.from({ length: 120 }, (_, i) => i === 2 ? `第 3 行：暗号是 ${code}` : `第 ${i + 1} 行：这是附件测试的填充内容。`);
+        $("aOut").hidden = false; $("aOut").textContent = "新建对话…";
+        try { sessionStorage.setItem("aib-pending-file", "1"); } catch {}
+        const n = await adNewChat();
+        if (n.reload) { status("千问要先打开首页，页面刷新后请再点一次“附件一键测试”。"); location.assign(AD.home); return; }
+        try { sessionStorage.removeItem("aib-pending-file"); } catch {}
+        await sleep(800);
+        $("aOut").textContent = "上传附件并发送…";
+        const s = await adSend("请阅读附件《附件测试.txt》，只回答：第 3 行写的暗号是什么？", [{ name: "附件测试.txt", content: lines.join("\n") }]);
+        logAdapter("sendFile", s);
+        if (!s.ok) { $("aOut").textContent = "✗ " + s.error; status("附件测试失败：" + s.error); return; }
+        const r = await adWait(300000, (x) => showReply(`附件测试（上传：${s.attach.how}）`, x));
+        const okCode = (r.answer || "").includes(code);
+        showReply(`附件测试（上传：${s.attach.how}）`, r, okCode ? `✓ AI 读到了附件（暗号 ${code}）` : `✗ 回答里没有暗号 ${code}，AI 可能没读到附件`);
+        logAdapter("replyFile", { ...r, code, okCode });
+        status(okCode ? "附件测试通过。" : "附件测试没通过，请下载报告发给我。");
+      });
       $("aNew").onclick = () => guard(async () => {
         const n = await adNewChat();
         logAdapter("newChat", n);
@@ -1199,7 +1273,7 @@
         case "state": return { ok: true, ...state() };
         case "ready": return adReady(msg.timeoutMs);
         case "newChat": return adNewChat();
-        case "send": return { ...(await adSend(msg.text || "")), chatId: AD.chatId() };
+        case "send": return { ...(await adSend(msg.text || "", msg.files)), chatId: AD.chatId() };
         case "wait": return { ...(await adWait(msg.timeoutMs, progressFn(msg))), chatId: AD.chatId(), url: location.href };
         case "read": return { ok: true, ...readReply(), generating: isGenerating(), chatId: AD.chatId() };
         case "generating": return { ok: true, generating: isGenerating() };
@@ -1208,7 +1282,7 @@
         case "deleteChats": return adDelete(msg.ids);
         case "ask": {
           // 发送 + 等完成（中途发进度）。newChat 需要刷新页面的，由后台先做 newChat 再发 ask
-          const s1 = await adSend(msg.text || "");
+          const s1 = await adSend(msg.text || "", msg.files);
           if (!s1.ok) return s1;
           const r = await adWait(msg.timeoutMs, progressFn(msg));
           return { ...r, ok: !r.error, send: s1, chatId: AD.chatId(), url: location.href };
