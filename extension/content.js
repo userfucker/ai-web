@@ -13,7 +13,7 @@
 (() => {
   if (window.__aibLoaded) { if (window.__aibToggle) window.__aibToggle(); return; }
   window.__aibLoaded = true;
-  const VERSION = "ai-web-1.1.1";
+  const VERSION = "ai-web-1.1.2";
   const HOST_ID = "ai-bridge-host";
 
   const SITES = [
@@ -1032,6 +1032,12 @@
     }
 
     const LONG_PASTE = 800;
+    // 网站很忙时的提示（千问“服务火爆”等）。只认发送之后新出现的：busyBase = 发送前页面上 + 发出去的文字里本来就有的个数
+    const BUSY_RE = /服务火爆|火爆|排队|人数较多|人数过多|使用人数|繁忙|拥挤|请稍候|稍后再试|稍后重试/;
+    const BUSY_MAX_MS = 30 * 60000;
+    let busyBase = Infinity;
+    const busyCount = (t) => (t.match(new RegExp(BUSY_RE.source, "g")) || []).length;
+    const busyOnPage = () => busyCount(document.body.innerText || "") > busyBase;
     async function adSend(text, files) {
       const ready = await adReady();
       if (!ready.ok) return { ok: false, error: ready.error };
@@ -1061,6 +1067,7 @@
       if (!method) return { ok: false, error: "写不进输入框（试了 " + order.join("、") + "）" };
       await sleep(300);
       const before = live.cur;
+      busyBase = busyCount(document.body.innerText || "") + busyCount(text); // 发出去的文字里本来就有这些词的不算
       const fire = async (by) => {
         if (by === "click") { const b = await waitFor(() => firstOf(AD.send), 2000); if (b) { clickLike(b); return "点发送按钮"; } }
         pressEnter(findAdInput() || input);
@@ -1072,20 +1079,27 @@
         how += "，没反应，又" + (await fire(AD.sendBy === "click" ? "enter" : "click"));
         started = await waitFor(() => live.cur !== before && live.cur, 12000);
       }
+      // 网站显示“服务火爆 / 排队中”：消息已经发出去了，等它轮到（网站自己会接着回复）
+      if (!started && busyOnPage()) { how += "，网站服务火爆，排队等待"; started = await waitFor(() => live.cur !== before && live.cur, BUSY_MAX_MS); }
       return started ? { ok: true, method, how, readySec: ready.waitedSec, attach } : { ok: false, method, how, attach, error: "发送后没看到回复接口的请求（可能没发出去，或者网站换了接口）" };
     }
     async function adWait(timeoutMs = 300000, onTick) {
       const t0 = Date.now();
-      let doneAt = 0;
+      let doneAt = 0, busySince = 0, lastBusy = 0;
       for (;;) {
         const r = readReply();
-        if (onTick) onTick(r);
-        if (r.error) return r;
-        if (!r.answer && !r.thinking && Date.now() - t0 > 120000) return { ...r, error: "2 分钟还没收到任何回答文字（网站可能很忙，或者被限流了）" };
-        const finished = (r.done || r.streamEnded) && !isStopShown();
+        // 服务火爆 / 排队：网站过一会儿会自己接着回复，一直等（最多再等 BUSY_MAX_MS），不当成出错
+        const busy = !r.answer && (BUSY_RE.test(r.error || "") || busyOnPage());
+        if (busy) { lastBusy = Date.now(); if (!busySince) busySince = lastBusy; }
+        const recentlyBusy = Date.now() - lastBusy < 3000;
+        if (onTick) onTick({ ...r, busy, error: busy ? null : r.error });
+        if (r.error && !busy) return r;
+        if (!r.answer && !r.thinking && !recentlyBusy && Date.now() - Math.max(t0, lastBusy) > 120000) return { ...r, error: "2 分钟还没收到任何回答文字（网站可能很忙，或者被限流了）" };
+        const finished = (r.done || r.streamEnded) && !isStopShown() && !(recentlyBusy && !r.answer);
         if (finished) { if (!doneAt) doneAt = Date.now(); else if (Date.now() - doneAt > 800) return readReply(); }
         else doneAt = 0;
-        if (Date.now() - t0 > timeoutMs) return { ...r, error: "等了 " + Math.round(timeoutMs / 1000) + " 秒还没完成" };
+        const limit = timeoutMs + (busySince ? BUSY_MAX_MS : 0);
+        if (Date.now() - t0 > limit) return { ...r, error: busy ? `网站服务火爆，排队等了 ${Math.round((Date.now() - busySince) / 60000)} 分钟还没轮到` : "等了 " + Math.round(limit / 1000) + " 秒还没完成" };
         await sleep(300);
       }
     }
@@ -1296,12 +1310,12 @@
     }
     function progressFn(msg) {
       if (!msg.reqId) return undefined;
-      let last = 0, lastLen = -1;
+      let last = 0, lastLen = -1, lastBusy = false;
       return (r) => {
         const now = Date.now();
-        if (now - last < 500 || (r.answer || "").length === lastLen) return;
-        last = now; lastLen = (r.answer || "").length;
-        try { chrome.runtime.sendMessage({ type: "aib-progress", reqId: msg.reqId, site: SITE.id, answer: r.answer, thinkingLen: (r.thinking || "").length, done: r.done }); } catch {}
+        if (now - last < 500 || ((r.answer || "").length === lastLen && !!r.busy === lastBusy)) return;
+        last = now; lastLen = (r.answer || "").length; lastBusy = !!r.busy;
+        try { chrome.runtime.sendMessage({ type: "aib-progress", reqId: msg.reqId, site: SITE.id, answer: r.answer, thinkingLen: (r.thinking || "").length, done: r.done, busy: !!r.busy }); } catch {}
       };
     }
     if (AD) {

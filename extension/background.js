@@ -38,7 +38,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     wsSend({ type: "event", event: "tab", site: msg.site, data: siteInfo(msg.site) });
     return false;
   }
-  if (msg.type === "aib-progress") { wsSend({ type: "progress", id: msg.reqId, site: msg.site, answer: msg.answer, thinkingLen: msg.thinkingLen, done: msg.done }); return false; }
+  if (msg.type === "aib-progress") { wsSend({ type: "progress", id: msg.reqId, site: msg.site, answer: msg.answer, thinkingLen: msg.thinkingLen, done: msg.done, busy: msg.busy }); return false; }
   if (msg.type === "aib-download" && tab) {
     chrome.downloads.download({ url: msg.url, filename: msg.filename, saveAs: false })
       .then(() => reply({ ok: true }))
@@ -136,7 +136,7 @@ async function runCommand(site, cmd, args = {}, id) {
     case "ask": {
       if (args.newChat) { const n = await newChat(site); if (!n.ok) return n; }
       const tab = await ensureTab(site);
-      return toTab(tab.id, { type: "aib-cmd", cmd: "ask", text: args.text, files: args.files, timeoutMs: args.timeoutMs, reqId: id }, (args.timeoutMs || 300000) + 180000);
+      return toTab(tab.id, { type: "aib-cmd", cmd: "ask", text: args.text, files: args.files, timeoutMs: args.timeoutMs, reqId: id }, (args.timeoutMs || 300000) + 30 * 60000 + 180000); // 网站服务火爆时最多再排队 30 分钟
     }
     case "state": case "ready": case "send": case "wait": case "read": case "generating": case "stop": case "listChats": case "deleteChats": {
       const tab = await ensureTab(site);
