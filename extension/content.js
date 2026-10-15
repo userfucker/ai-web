@@ -13,7 +13,7 @@
 (() => {
   if (window.__aibLoaded) { if (window.__aibToggle) window.__aibToggle(); return; }
   window.__aibLoaded = true;
-  const VERSION = "ai-web-1.1.0";
+  const VERSION = "ai-web-1.1.1";
   const HOST_ID = "ai-bridge-host";
 
   const SITES = [
@@ -1031,6 +1031,7 @@
       return { ok: false, error: "附件放不上去（试了：" + tried.join("、") + "）" };
     }
 
+    const LONG_PASTE = 800;
     async function adSend(text, files) {
       const ready = await adReady();
       if (!ready.ok) return { ok: false, error: ready.error };
@@ -1045,8 +1046,11 @@
         input = findAdInput() || input;
         await clearInput(input); // 有的网站粘贴文件时会顺便贴进文件名
       }
-      // 多行文字：contenteditable 编辑器用粘贴更能保住换行
-      const order = [...new Set([...(/\n/.test(text) && !isTextField(input) ? ["paste"] : []), AD.insert, ...methodOrder(input)])].filter((k) => !(METHODS[k].noSlate && isSlate(input)) && !(METHODS[k].only === "text" && !isTextField(input)) && !(METHODS[k].only === "ce" && isTextField(input)));
+      // 多行文字：contenteditable 编辑器用粘贴更能保住换行。
+      // 但长文字不能用粘贴：千问 / Kimi 等会把粘贴的大段文字自动变成一个文件（千问按第一行起名，比如《AI 会议规则.txt》），
+      // 消息里就只剩文件、没有文字，AI 会卡在“理解需求”。所以超过 LONG_PASTE 字就不用粘贴。
+      const longText = text.length > LONG_PASTE;
+      const order = [...new Set([...(/\n/.test(text) && !isTextField(input) && !longText ? ["paste"] : []), AD.insert, ...methodOrder(input)])].filter((k) => !(longText && k === "paste")).filter((k) => !(METHODS[k].noSlate && isSlate(input)) && !(METHODS[k].only === "text" && !isTextField(input)) && !(METHODS[k].only === "ce" && isTextField(input)));
       let method = null;
       for (const key of order) {
         try { await METHODS[key].run(input, text); } catch {}
