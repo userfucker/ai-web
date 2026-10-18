@@ -443,6 +443,7 @@
       send: ['button[data-testid="chat_input_send_button"]:not([disabled]):not([data-disabled="true"])', 'button[aria-label="发送"]:not([disabled])'],
       stop: ['button[data-testid="chat_input_break_button"]', 'button[aria-label="停止生成"]', 'button[aria-label="停止"]'],
       sendBy: "enter",
+      sendDelay: 500,
       newChat: { goHome: true },
       upload: ["input"], // input[data-testid="upload-file-input"]，accept 里有 .txt
       stream: /\/chat\/completion(\?|$)/,

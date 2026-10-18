@@ -13,7 +13,7 @@
 (() => {
   if (window.__aibLoaded) { if (window.__aibToggle) window.__aibToggle(); return; }
   window.__aibLoaded = true;
-  const VERSION = "ai-web-1.2.0";
+  const VERSION = "ai-web-1.2.1";
   const HOST_ID = "ai-bridge-host";
 
   const SITES = [
@@ -1070,15 +1070,18 @@
       const before = live.cur;
       busyBase = busyCount(document.body.innerText || "") + busyCount(text); // 发出去的文字里本来就有这些词的不算
       const fire = async (by) => {
-        if (by === "click") { const b = await waitFor(() => firstOf(AD.send), 2000); if (b) { clickLike(b); return "点发送按钮"; } }
+        if (by === "click") { const b = await waitFor(() => firstOf(AD.send), AD.sendBy === "click" ? 2000 : 500); if (b) { clickLike(b); return "点发送按钮"; } }
         pressEnter(findAdInput() || input);
         return "按回车";
       };
+      if (AD.sendDelay) await sleep(AD.sendDelay); // 有的网站写完字要等一下才认（豆包）
       let how = await fire(AD.sendBy);
-      let started = await waitFor(() => live.cur !== before && live.cur, 8000);
-      if (!started && norm(readInput(findAdInput())).includes(norm(text).slice(0, 20))) {
-        how += "，没反应，又" + (await fire(AD.sendBy === "click" ? "enter" : "click"));
-        started = await waitFor(() => live.cur !== before && live.cur, 12000);
+      // 1.2.1：不再干等 8 秒——1.5 秒后文字还在输入框里，就说明没发出去，马上换个方式再发（最多 3 次）
+      const stillThere = () => norm(readInput(findAdInput())).includes(norm(text).slice(0, 20));
+      let started = await waitFor(() => live.cur !== before && live.cur, 1500);
+      for (let i = 0; !started && i < 3; i++) {
+        if (stillThere()) how += "，没反应，又" + (await fire(i % 2 === 0 ? (AD.sendBy === "click" ? "enter" : "click") : AD.sendBy));
+        started = await waitFor(() => live.cur !== before && live.cur, i === 2 ? 12000 : 2000);
       }
       // 网站显示“服务火爆 / 排队中”：消息已经发出去了，等它轮到（网站自己会接着回复）
       if (!started && busyOnPage()) { how += "，网站服务火爆，排队等待"; started = await waitFor(() => live.cur !== before && live.cur, BUSY_MAX_MS); }
