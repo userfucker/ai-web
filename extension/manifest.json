@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AI Web · 网页版 AI 桥接",
-  "version": "1.1.2",
-  "description": "让 DeepSeek、智谱清言、千问、Kimi 网页版接入局域网中转站：新建对话、发送、等待完成、读取回复（去掉思考过程）、会话列表、批量删除、打开会话。",
+  "version": "1.2.0",
+  "description": "让 DeepSeek、智谱清言、千问、Kimi、豆包 网页版接入局域网中转站：新建对话、发送、等待完成、读取回复（去掉思考过程）、会话列表、批量删除、打开会话。",
   "minimum_chrome_version": "116",
   "permissions": [
     "storage",
@@ -17,7 +17,8 @@
     "https://*.tongyi.com/*",
     "https://*.qianwen.com/*",
     "https://*.kimi.com/*",
-    "https://*.moonshot.cn/*"
+    "https://*.moonshot.cn/*",
+    "https://*.doubao.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -34,7 +35,8 @@
         "https://*.tongyi.com/*",
         "https://*.qianwen.com/*",
         "https://*.kimi.com/*",
-        "https://*.moonshot.cn/*"
+        "https://*.moonshot.cn/*",
+        "https://*.doubao.com/*"
       ],
       "js": [
         "hook.js"
@@ -49,7 +51,8 @@
         "https://*.tongyi.com/*",
         "https://*.qianwen.com/*",
         "https://*.kimi.com/*",
-        "https://*.moonshot.cn/*"
+        "https://*.moonshot.cn/*",
+        "https://*.doubao.com/*"
       ],
       "js": [
         "sites.js",

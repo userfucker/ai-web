@@ -13,7 +13,7 @@
 (() => {
   if (window.__aibLoaded) { if (window.__aibToggle) window.__aibToggle(); return; }
   window.__aibLoaded = true;
-  const VERSION = "ai-web-1.1.2";
+  const VERSION = "ai-web-1.2.0";
   const HOST_ID = "ai-bridge-host";
 
   const SITES = [
@@ -21,6 +21,7 @@
     { id: "glm", name: "智谱清言", re: /(^|\.)chatglm\.cn$/ },
     { id: "qwen", name: "千问", re: /(^|\.)(tongyi\.com|qianwen\.com)$/ },
     { id: "kimi", name: "Kimi", re: /(^|\.)(kimi\.com|moonshot\.cn)$/ },
+    { id: "doubao", name: "豆包", re: /(^|\.)doubao\.com$/ }, // 1.2.0：先采样，适配器之后写
   ];
   const SITE = SITES.find((s) => s.re.test(location.hostname));
   if (!SITE) return;
