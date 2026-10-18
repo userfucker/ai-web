@@ -430,6 +430,69 @@
         return { answer: pick("text"), thinking: pick("think"), done, error };
       },
     },
+
+    // ------------------------------------------------------------ 豆包（2026-10-18，按采样报告写）
+    doubao: {
+      name: "豆包",
+      home: "https://www.doubao.com/chat/",
+      isFresh: () => /^\/chat\/?$/.test(location.pathname),
+      // Tiptap / ProseMirror：execCommand 和粘贴都能写进去，beforeinput 不行
+      input: ['div.tiptap.ProseMirror[contenteditable="true"]', '[data-testid="chat_input_input"] [contenteditable="true"]', '[contenteditable="true"]'],
+      insert: "execCommand",
+      // 采样时没认到发送按钮（认成了“豆包 快速”模型按钮），按回车能发出去
+      send: ['button[data-testid="chat_input_send_button"]:not([disabled]):not([data-disabled="true"])', 'button[aria-label="发送"]:not([disabled])'],
+      stop: ['button[data-testid="chat_input_break_button"]', 'button[aria-label="停止生成"]', 'button[aria-label="停止"]'],
+      sendBy: "enter",
+      newChat: { goHome: true },
+      upload: ["input"], // input[data-testid="upload-file-input"]，accept 里有 .txt
+      stream: /\/chat\/completion(\?|$)/,
+      dom: 'div[data-testid="receive_message"] div[data-testid="message_text_content"]',
+      chatUrl: (id) => `https://www.doubao.com/chat/${id}`,
+      chatId: () => (/^\/chat\/(\d{8,})/.exec(location.pathname) || [])[1] || null,
+      async listChats() { throw new Error("豆包暂不支持获取会话列表"); },
+      async deleteChats(_h, ids) { return ids.map((id) => ({ id, ok: false, error: "豆包暂不支持删除会话" })); },
+      // POST /chat/completion，SSE：
+      //   STREAM_MSG_NOTIFY {content:{content_block:[{block_type,block_id,content:{text_block:{text}},is_finish}]}}  第一块
+      //   STREAM_CHUNK {patch_op:[{patch_object:1, patch_value:{content_block:[…同上…]}}]}  之后的块（patch_object 111 是语音稿 tts_content，不要）
+      //   CHUNK_DELTA {text}  接在当前那一块后面的新文字
+      //   SSE_REPLY_END {end_type:1 回答结束 / 2 / 3 全部结束}；ext.is_finish="1" 也表示完成
+      // block_type 10000 是正文；别的（深度思考等）当思考过程，去掉
+      parse(text) {
+        const blocks = new Map();
+        let cur = null, done = false, error = null;
+        const add = (b) => {
+          if (!b || !b.block_id) return;
+          const tb = b.content && b.content.text_block;
+          const type = b.block_type === 10000 ? "text" : "think";
+          const r = blocks.get(b.block_id) || { type, s: "" };
+          if (tb && typeof tb.text === "string") r.s += tb.text;
+          if (b.content && b.content.thinking_block && typeof b.content.thinking_block.text === "string") { r.type = "think"; r.s += b.content.thinking_block.text; }
+          blocks.set(b.block_id, r);
+          cur = r;
+        };
+        for (const e of sseEvents(text)) {
+          const j = e.json;
+          if (!j || typeof j !== "object") continue;
+          if (e.event === "SSE_REPLY_END" && (j.end_type === 1 || j.end_type === 3)) done = true;
+          if (/ERROR|FAIL/i.test(e.event)) error = j.message || j.msg || j.error_msg || e.event;
+          if ((j.code && j.code !== 0) || (j.error_code && j.error_code !== 0)) error = `${j.code || j.error_code} ${j.message || j.msg || j.error_msg || ""}`.trim();
+          if (e.event === "STREAM_MSG_NOTIFY") for (const b of (j.content && j.content.content_block) || []) add(b);
+          else if (e.event === "STREAM_CHUNK") {
+            for (const op of j.patch_op || []) {
+              const v = op.patch_value || {};
+              if (op.patch_object === 1) for (const b of v.content_block || []) add(b);
+              if (v.ext && v.ext.is_finish === "1") done = true;
+            }
+          } else if (e.event === "CHUNK_DELTA" && typeof j.text === "string") {
+            if (!cur) { cur = { type: "text", s: "" }; blocks.set("_delta", cur); }
+            cur.s += j.text;
+          }
+        }
+        if (!blocks.size && !done) error = error || plainError(text);
+        const pick = (t) => [...blocks.values()].filter((r) => r.type === t).map((r) => r.s).filter(Boolean).join("\n\n");
+        return { answer: pick("text"), thinking: pick("think"), done, error };
+      },
+    },
   };
 
   const g = typeof window !== "undefined" ? window : globalThis;

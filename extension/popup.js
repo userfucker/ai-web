@@ -20,12 +20,12 @@ async function render() {
   }));
   $("ver").textContent = "AI Web " + r.version;
 }
-$("openAll").onclick = async () => { $("openAll").disabled = true; $("openAll").textContent = "打开中…"; const t = setInterval(render, 1000); await bg("openAll"); clearInterval(t); $("openAll").disabled = false; $("openAll").textContent = "打开四个网站"; render(); };
+$("openAll").onclick = async () => { $("openAll").disabled = true; $("openAll").textContent = "打开中…"; const t = setInterval(render, 1000); await bg("openAll"); clearInterval(t); $("openAll").disabled = false; $("openAll").textContent = "打开全部网站"; render(); };
 $("opts").onclick = () => chrome.runtime.openOptionsPage();
 $("debug").onclick = async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   try { await chrome.tabs.sendMessage(tab.id, { type: "aib-toggle" }); window.close(); }
-  catch { $("ce").textContent = "当前页不是这四个 AI 网站之一（或者要先刷新页面）"; }
+  catch { $("ce").textContent = "当前页不是支持的 AI 网站（或者要先刷新页面）"; }
 };
 render();
 setInterval(render, 2000);

@@ -18,7 +18,10 @@ const HOST_RE = {
   glm: /^https:\/\/([^/]+\.)?chatglm\.cn\//,
   kimi: /^https:\/\/([^/]+\.)?(kimi\.com|moonshot\.cn)\//,
   qwen: /^https:\/\/([^/]+\.)?(tongyi\.com|qianwen\.com)\//,
+  doubao: /^https:\/\/([^/]+\.)?doubao\.com\//,
 };
+/** “打开全部网站”不再打开千问（中转站已停用千问） */
+const OPEN_ALL = SITE_IDS.filter((s) => s !== "qwen");
 const siteOfUrl = (url) => SITE_IDS.find((s) => HOST_RE[s].test(url || "")) || null;
 const DEFAULTS = { relayHost: "", relayPort: 8765, token: "", clientName: "", autoConnect: true, newWindow: true };
 const getSettings = async () => ({ ...DEFAULTS, ...(await chrome.storage.local.get(Object.keys(DEFAULTS))) });
@@ -234,7 +237,7 @@ async function popupCmd(msg) {
     case "status": { const st = await getSettings(); return { ok: true, conn: { state: wsState, error: wsError }, relay: st.relayHost ? `${st.relayHost}:${st.relayPort}` : "", sites: SITE_IDS.map(siteInfo), version: VERSION }; }
     case "connect": manualOff = false; retry = 0; if (ws) ws.close(); setTimeout(connect, 200); return { ok: true };
     case "disconnect": disconnect(); return { ok: true };
-    case "openAll": { const r = await Promise.allSettled(SITE_IDS.map((s) => ensureTab(s))); return { ok: true, results: r.map((x, i) => ({ site: SITE_IDS[i], ok: x.status === "fulfilled", error: x.reason && String(x.reason.message || x.reason) })) }; }
+    case "openAll": { const r = await Promise.allSettled(OPEN_ALL.map((s) => ensureTab(s))); return { ok: true, results: r.map((x, i) => ({ site: OPEN_ALL[i], ok: x.status === "fulfilled", error: x.reason && String(x.reason.message || x.reason) })) }; }
     case "focus": return runCommand(msg.site, "focus");
     case "test": {
       // 设置页的“测试连接”：单独连一次，看能不能连上、口令对不对
