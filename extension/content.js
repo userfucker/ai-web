@@ -985,20 +985,24 @@
       }
       return { ok: true, how: "打开首页", reload: true };
     }
-    // ---- 附件（txt）：中转站发的长消息放进 txt 上传（2026-10-14）
+    // ---- 附件：中转站发的长消息放进 txt 上传（2026-10-14）；1.4.0 起也能发图片（AI图图 工作台“看详情图”，2026-10-21）
     // 三种上传方式按顺序试：粘贴文件到输入框 / 设置网页上的文件选择框 / 拖放到输入区域。
     // 文件名出现在页面上（数量变多）就算放上去了，再等“上传中 / 解析中”消失、发送按钮能点。
     const UPLOADING_RE = /上传中|解析中|处理中|正在上传|正在解析|uploading|parsing/i;
     const countText = (t) => { const all = document.body.innerText || ""; let n = 0, i = 0; while ((i = all.indexOf(t, i)) >= 0) { n++; i += t.length; } return n; };
-    function fileInputs() {
-      return [...document.querySelectorAll('input[type="file"]')].filter((x) => !isOurs(x) && !x.disabled && (!x.accept || /\.txt|text\/|\*/i.test(x.accept)));
+    function fileInputs(image) {
+      const ok = image ? /image|\.png|\.jpe?g|\*/i : /\.txt|text\/|\*/i;
+      return [...document.querySelectorAll('input[type="file"]')].filter((x) => !isOurs(x) && !x.disabled && (!x.accept || ok.test(x.accept)));
     }
+    // 图片放上去以后页面上多出来的预览图（blob: / data: 地址，或者输入区附近的小图）
+    const previewCount = () => document.querySelectorAll('img[src^="blob:"], img[src^="data:image"]').length;
+    const b64ToFile = (f) => { const bin = atob(f.b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new File([u], f.name || "图片.jpg", { type: f.mime || "image/jpeg" }); };
     const ATTACH = {
       paste: async (input, list) => { await selectIn(input, false); const dt = new DataTransfer(); list.forEach((f) => dt.items.add(f)); input.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); },
       input: async (input, list) => {
-        const fi = fileInputs();
+        const fi = fileInputs(list.some((f) => /^image\//.test(f.type)));
         const near = fi.find((x) => { let a = input; for (let i = 0; i < 8 && a; i++, a = a.parentElement) if (a.contains(x)) return true; return false; }) || fi[0];
-        if (!near) throw new Error("页面上没有能选 txt 的文件框");
+        if (!near) throw new Error("页面上没有能选这种文件的文件框");
         const dt = new DataTransfer(); list.forEach((f) => dt.items.add(f));
         near.files = dt.files;
         near.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1013,20 +1017,24 @@
     async function attachFiles(files) {
       const input = findAdInput();
       if (!input) return { ok: false, error: "没找到输入框" };
-      const list = files.map((f) => new File([f.content], f.name, { type: "text/plain" }));
-      const keys = files.map((f) => f.name.replace(/\.txt$/i, ""));
+      const list = files.map((f) => (f.b64 ? b64ToFile(f) : new File([f.content], f.name, { type: "text/plain" })));
+      const nImg = files.filter((f) => f.b64).length;
+      const keys = files.filter((f) => !f.b64).map((f) => f.name.replace(/\.txt$/i, ""));
       const before = keys.map(countText);
+      const imgBefore = previewCount(), allImgBefore = document.images.length;
       const order = [...new Set([...(AD.upload || []), "paste", "input", "drop"])];
       const tried = [];
       for (const how of order) {
         try { await ATTACH[how](findAdInput() || input, list); } catch (e) { tried.push(how + "（" + e.message + "）"); continue; }
-        const shown = await waitFor(() => keys.every((k, i) => countText(k) > before[i]), 4000);
+        // txt 看文件名出现了没有；图片看预览图多了没有（有的网站也显示文件名）
+        const imgsShown = () => !nImg || previewCount() >= imgBefore + nImg || document.images.length >= allImgBefore + nImg || files.filter((f) => f.b64).every((f) => countText(f.name.replace(/\.\w+$/, "")) > 0);
+        const shown = await waitFor(() => keys.every((k, i) => countText(k) > before[i]) && imgsShown(), nImg ? 8000 : 4000);
         if (!shown) { tried.push(how); continue; }
         // 等上传 / 解析完
         const t0 = Date.now();
         await sleep(800);
         while (Date.now() - t0 < 90000 && UPLOADING_RE.test(document.body.innerText.slice(-20000))) await sleep(500);
-        await sleep(800);
+        await sleep(800 + nImg * 1200); // 图片上传没有文字提示的网站：每张多等一会儿
         return { ok: true, how, waitedSec: sec(Date.now() - t0) };
       }
       return { ok: false, error: "附件放不上去（试了：" + tried.join("、") + "）" };

@@ -47,7 +47,7 @@
 | `state` | — | `{ url, chatId, generating, inputReady, title }` |
 | `ready` | `timeoutMs?` | 等输入框能用（最多 60 秒），能识别没登录 |
 | `newChat` | — | 新建对话。千问是跳到首页，插件会等新页面准备好 |
-| `send` | `text, files?` | 写进输入框并发送，确认回复接口已经开始；`{ method, how, attach, chatId }`。`files: [{ name: "材料.txt", content: "…" }]` 是要上传的 txt 附件 |
+| `send` | `text, files?` | 写进输入框并发送，确认回复接口已经开始；`{ method, how, attach, chatId }`。`files: [{ name: "材料.txt", content: "…" }]` 是要上传的 txt 附件；1.4.0 起也可以是图片 `{ name: "图.jpg", b64: "…", mime: "image/jpeg" }`（AI图图 工作台“看详情图”用） |
 | `wait` | `timeoutMs?`（默认 300000） | 等回复完成；`{ answer, thinking, done, error, firstTokenSec, totalSec, chatId, url }` |
 | `ask` | `text, files?, newChat?, timeoutMs?` | 等于 newChat（可选）+ send + wait；生成中会发 `progress` |
 | `read` | — | 读当前（最后一次）回复，不等待 |
