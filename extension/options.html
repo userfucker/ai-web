@@ -8,7 +8,7 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
   h1 { font-size: 20px; margin: 0 0 4px; } .sub { color: var(--muted); margin: 0 0 18px; }
   label { display: block; margin: 14px 0 4px; font-weight: 600; }
-  input[type=text], input[type=number], input[type=password] { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: inherit; font: inherit; }
+  select, input[type=text], input[type=number], input[type=password] { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: inherit; font: inherit; }
   .row { display: flex; gap: 10px; } .row > div { flex: 1; } .row > div.port { flex: 0 0 120px; }
   .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
   .chk { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-weight: 400; }
@@ -21,11 +21,15 @@
 <body><main><div class="card">
   <h1>AI Web 设置</h1>
   <p class="sub">插件通过 WebSocket 连到局域网里的中转站：<code id="preview">ws://IP:端口/ext</code></p>
+  <label for="srv">保存的服务器</label>
+  <div class="row"><div><select id="srv"></select></div><div class="port"><button id="del" style="width:100%">删除这个</button></div></div>
+  <div class="hint">比如“AI 会议”（8765）和“AI图图 工作台”（8766）各存一个，以后在这里或工具栏弹出窗口里选一下就切换，不用再找口令</div>
+  <label for="sname">名字</label><input type="text" id="sname" placeholder="例如 AI 会议、AI图图 工作台" autocomplete="off">
   <div class="row">
     <div><label for="host">中转站 IP</label><input type="text" id="host" placeholder="例如 192.168.1.100" autocomplete="off"><div class="hint">中转站那台电脑的局域网 IP；中转站就在这台电脑上填 127.0.0.1</div></div>
     <div class="port"><label for="port">端口</label><input type="number" id="port" min="1" max="65535" placeholder="8765"></div>
   </div>
-  <label for="token">口令</label><input type="password" id="token" placeholder="和中转站设置的一样；没设就空着" autocomplete="off">
+  <label for="token">口令</label><input type="text" id="token" placeholder="和中转站设置的一样；没设就空着" autocomplete="off">
   <div class="hint">局域网里谁都能连中转站，设个口令，别人就不能用你的账号发消息</div>
   <label for="name">这台电脑的名字</label><input type="text" id="name" placeholder="例如 书房电脑" autocomplete="off">
   <div class="hint">有多台电脑连同一个中转站时用来区分</div>

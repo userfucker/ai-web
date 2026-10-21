@@ -1,4 +1,4 @@
-// AI Web 弹出窗口：连接状态、四个网站的状态
+// AI Web 弹出窗口：连接状态、切换服务器、各网站的状态
 const $ = (id) => document.getElementById(id);
 const bg = (cmd, extra) => chrome.runtime.sendMessage({ type: "aib-popup", cmd, ...extra });
 const STATE = { on: "已连接中转站", connecting: "连接中…", error: "没连上", off: "未连接" };
@@ -27,5 +27,22 @@ $("debug").onclick = async () => {
   try { await chrome.tabs.sendMessage(tab.id, { type: "aib-toggle" }); window.close(); }
   catch { $("ce").textContent = "当前页不是支持的 AI 网站（或者要先刷新页面）"; }
 };
+// 切换服务器：把选中的服务器写成当前设置，background.js 看到变化会自动重连
+async function drawServers() {
+  const r = await chrome.storage.local.get(["servers", "serverId"]);
+  const list = Array.isArray(r.servers) ? r.servers : [];
+  $("srvrow").hidden = list.length < 2;
+  if (list.length < 2) return;
+  $("srv").replaceChildren(...list.map((sv) => new Option(`${sv.name}（${sv.port}）`, sv.id)));
+  $("srv").value = r.serverId || "";
+  $("srv").onchange = async () => {
+    const sv = list.find((x) => x.id === $("srv").value);
+    if (!sv) return;
+    await chrome.storage.local.set({ relayHost: sv.host, relayPort: sv.port, token: sv.token, serverId: sv.id });
+    $("ce").textContent = `切换到“${sv.name}”…`;
+    setTimeout(render, 1200);
+  };
+}
+drawServers();
 render();
 setInterval(render, 2000);
