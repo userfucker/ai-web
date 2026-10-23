@@ -990,17 +990,19 @@
     // 文件名出现在页面上（数量变多）就算放上去了，再等“上传中 / 解析中”消失、发送按钮能点。
     const UPLOADING_RE = /上传中|解析中|处理中|正在上传|正在解析|uploading|parsing/i;
     const countText = (t) => { const all = document.body.innerText || ""; let n = 0, i = 0; while ((i = all.indexOf(t, i)) >= 0) { n++; i += t.length; } return n; };
-    function fileInputs(image) {
-      const ok = image ? /image|\.png|\.jpe?g|\*/i : /\.txt|text\/|\*/i;
-      return [...document.querySelectorAll('input[type="file"]')].filter((x) => !isOurs(x) && !x.disabled && (!x.accept || ok.test(x.accept)));
+    /** 页面上能收这些文件的文件框：没写 accept 的、或者 accept 里有这些文件的扩展名 / 类型的 */
+    function fileInputs(list) {
+      const fits = (acc, f) => { const a = acc.toLowerCase(), ext = (/\.[^.]+$/.exec(f.name || "") || [""])[0].toLowerCase(), t = (f.type || "").toLowerCase();
+        return a.includes("*") && !/^[a-z]+\/\*$/.test(a.trim()) || (ext && a.includes(ext)) || (t && (a.includes(t) || a.includes(t.split("/")[0] + "/*"))) || (!t && ext === ".txt" && /text\//.test(a)); };
+      return [...document.querySelectorAll('input[type="file"]')].filter((x) => !isOurs(x) && !x.disabled && (!x.accept || list.every((f) => fits(x.accept, f))));
     }
     // 图片放上去以后页面上多出来的预览图（blob: / data: 地址，或者输入区附近的小图）
     const previewCount = () => document.querySelectorAll('img[src^="blob:"], img[src^="data:image"]').length;
-    const b64ToFile = (f) => { const bin = atob(f.b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new File([u], f.name || "图片.jpg", { type: f.mime || "image/jpeg" }); };
+    const b64ToFile = (f) => { const bin = atob(f.b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new File([u], f.name || "文件", { type: f.mime || "application/octet-stream" }); };
     const ATTACH = {
       paste: async (input, list) => { await selectIn(input, false); const dt = new DataTransfer(); list.forEach((f) => dt.items.add(f)); input.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); },
       input: async (input, list) => {
-        const fi = fileInputs(list.some((f) => /^image\//.test(f.type)));
+        const fi = fileInputs(list);
         const near = fi.find((x) => { let a = input; for (let i = 0; i < 8 && a; i++, a = a.parentElement) if (a.contains(x)) return true; return false; }) || fi[0];
         if (!near) throw new Error("页面上没有能选这种文件的文件框");
         const dt = new DataTransfer(); list.forEach((f) => dt.items.add(f));
@@ -1018,8 +1020,10 @@
       const input = findAdInput();
       if (!input) return { ok: false, error: "没找到输入框" };
       const list = files.map((f) => (f.b64 ? b64ToFile(f) : new File([f.content], f.name, { type: "text/plain" })));
-      const nImg = files.filter((f) => f.b64).length;
-      const keys = files.filter((f) => !f.b64).map((f) => f.name.replace(/\.txt$/i, ""));
+      // 图片看预览图；其他文件（txt、pdf、word、excel……，1.5.0 起原格式发）看文件名有没有出现在页面上
+      const isImg = (f) => f.b64 && /^image\//.test(f.mime || "");
+      const nImg = files.filter(isImg).length;
+      const keys = files.filter((f) => !isImg(f)).map((f) => f.name.replace(/\.[^.]+$/, ""));
       const before = keys.map(countText);
       const imgBefore = previewCount(), allImgBefore = document.images.length;
       const order = [...new Set([...(AD.upload || []), "paste", "input", "drop"])];
@@ -1027,7 +1031,7 @@
       for (const how of order) {
         try { await ATTACH[how](findAdInput() || input, list); } catch (e) { tried.push(how + "（" + e.message + "）"); continue; }
         // txt 看文件名出现了没有；图片看预览图多了没有（有的网站也显示文件名）
-        const imgsShown = () => !nImg || previewCount() >= imgBefore + nImg || document.images.length >= allImgBefore + nImg || files.filter((f) => f.b64).every((f) => countText(f.name.replace(/\.\w+$/, "")) > 0);
+        const imgsShown = () => !nImg || previewCount() >= imgBefore + nImg || document.images.length >= allImgBefore + nImg || files.filter(isImg).every((f) => countText(f.name.replace(/\.\w+$/, "")) > 0);
         const shown = await waitFor(() => keys.every((k, i) => countText(k) > before[i]) && imgsShown(), nImg ? 8000 : 4000);
         if (!shown) { tried.push(how); continue; }
         // 等上传 / 解析完
@@ -1259,7 +1263,7 @@
         item.scrollIntoView({ block: "center" });
         hover(item);
         await sleep(400);
-        const trig = item.querySelector(spec.trigger);
+        const trig = typeof spec.trigger === "function" ? spec.trigger(item) : item.querySelector(spec.trigger);
         if (!trig) return { ok: false, how: "界面", error: "找不到“更多”按钮" };
         hover(trig);
         clickLike(trig);

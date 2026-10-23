@@ -450,8 +450,51 @@
       dom: 'div[data-testid="receive_message"] div[data-testid="message_text_content"]',
       chatUrl: (id) => `https://www.doubao.com/chat/${id}`,
       chatId: () => (/^\/chat\/(\d{8,})/.exec(location.pathname) || [])[1] || null,
-      async listChats() { throw new Error("豆包暂不支持获取会话列表"); },
-      async deleteChats(_h, ids) { return ids.map((id) => ({ id, ok: false, error: "豆包暂不支持删除会话" })); },
+      // 会话列表从左边侧边栏读（链接是 /chat/<数字 id>）；“主对话”不算（2026-10-23，按 Lee 的截图写）
+      sideItems() {
+        const out = [];
+        for (const a of document.querySelectorAll('a[href*="/chat/"]')) {
+          const m = /\/chat\/(\d{8,})(?:[/?#]|$)/.exec(a.getAttribute("href") || "");
+          if (!m || a.closest("[data-testid=\"receive_message\"], [data-testid=\"send_message\"]")) continue;
+          const title = (a.innerText || "").trim().split("\n")[0].trim();
+          if (!title || title === "主对话") continue;
+          out.push({ id: m[1], title, el: a });
+        }
+        return out;
+      },
+      sideScroller() {
+        let el = (this.sideItems()[0] || {}).el;
+        for (let i = 0; el && i < 12; i++, el = el.parentElement) { const s = getComputedStyle(el); if (/(auto|scroll)/.test(s.overflowY) && el.scrollHeight > el.clientHeight + 10) return el; }
+        return null;
+      },
+      async listChats(h, max) {
+        const seen = new Map();
+        for (let round = 0; round < 30 && seen.size < max; round++) {
+          const before = seen.size;
+          for (const x of this.sideItems()) if (!seen.has(x.id)) seen.set(x.id, { id: x.id, title: x.title, updatedAt: 0, pinned: false, url: this.chatUrl(x.id) });
+          const sc = this.sideScroller();
+          if (!sc) break;
+          if (round && seen.size === before) break; // 往下滚也没新的了
+          sc.scrollTop = sc.scrollHeight; sc.dispatchEvent(new Event("scroll", { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 900));
+        }
+        if (!seen.size) throw new Error("左边侧边栏里没找到会话（侧边栏是不是收起来了？）");
+        return [...seen.values()].slice(0, max);
+      },
+      // 删除：鼠标移到会话上 → 点“…” → 删除 → 确认框里点“删除”
+      async deleteChats(h, ids) {
+        const res = [];
+        for (const id of ids) res.push({ id, ...(await h.uiDelete(this.uiDelete, id)) });
+        return res;
+      },
+      uiDelete: {
+        item: (id) => { const a = document.querySelector(`a[href*="/chat/${id}"]`); return a ? a.closest("li, [role=\"listitem\"]") || a : null; },
+        // 会话右边有两个小图标：归档、“…”；“…”是最右边那个
+        trigger: (item) => { const c = [...item.querySelectorAll('button, [role="button"], [class*="more"], [class*="More"]')].filter((e) => !/归档/.test(e.getAttribute("aria-label") || e.title || "")); return c[c.length - 1] || null; },
+        menu: '[role="menuitem"], [role="menu"] *, li, div, span', menuText: /^删除(\s*Ctrl\s*\+\s*D)?$/,
+        confirm: 'button, [role="button"]', confirmText: /^删除$/,
+        scroller: null,
+      },
       // POST /chat/completion，SSE：
       //   STREAM_MSG_NOTIFY {content:{content_block:[{block_type,block_id,content:{text_block:{text}},is_finish}]}}  第一块
       //   STREAM_CHUNK {patch_op:[{patch_object:1, patch_value:{content_block:[…同上…]}}]}  之后的块（patch_object 111 是语音稿 tts_content，不要）
